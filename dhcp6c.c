@@ -271,12 +271,6 @@ client6_init(void)
 	static struct sockaddr_in6 sa6_allagent_storage;
 	int error, on = 0;
 
-	/* get our DUID */
-	if (get_duid(DUID_FILE, &client_duid)) {
-		d_printf(LOG_ERR, FNAME, "failed to get a DUID");
-		exit(1);
-	}
-
 	memset(&hints, 0, sizeof(hints));
 	hints.ai_family = PF_INET6;
 	hints.ai_socktype = SOCK_DGRAM;
@@ -1037,6 +1031,12 @@ client6_send(struct dhcp6_event *ev)
 			goto end;
 		}
 		break;
+	}
+
+	/* get our DUID based on the current interface name */
+	if (get_duid(ifp->ifname, &client_duid) < 0) {
+		d_printf(LOG_ERR, FNAME, "failed to get a DUID");
+			exit(-1);
 	}
 
 	/* client ID */

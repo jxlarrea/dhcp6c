@@ -1010,16 +1010,34 @@ in6_matchflags(struct sockaddr *addr, char *ifnam, int flags)
 }
 
 int
-get_duid(const char *idfile, struct duid *duid)
+get_duid(const char *ifname, struct duid *duid)
 {
 	FILE *fp = NULL;
 	uint16_t len = 0, hwtype;
 	struct dhcp6opt_duid_type1 *dp; /* we only support the type1 DUID */
 	char tmpbuf[256];	/* DUID should be no more than 256 bytes */
+	char idfile[256] = "/var/db/dhcp6c_duid";
 
-	if ((fp = fopen(idfile, "r")) == NULL && errno != ENOENT)
-		d_printf(LOG_NOTICE, FNAME, "failed to open DUID file: %s",
-		    idfile);
+    /* First try interface-specific DUID file if ifname is provided */
+    if (ifname && ifname[0] != '\0') {
+        snprintf(idfile, sizeof(idfile), "/var/db/dhcp6c_duid_%s", ifname);
+        if ((fp = fopen(idfile, "r")) == NULL && errno != ENOENT) {
+            d_printf(LOG_NOTICE, FNAME, "failed to open interface-specific DUID file: %s",
+                idfile);
+        }
+    }
+
+    /* Fall back to the original DUID file if needed */
+    if (fp == NULL) {       
+        if ((fp = fopen(idfile, "r")) == NULL && errno != ENOENT) {
+            d_printf(LOG_NOTICE, FNAME, "failed to open default DUID file: %s",
+                idfile);
+        }
+        /* Remember the path for later saving if needed */
+        if (ifname && ifname[0] != '\0') {
+            snprintf(idfile, sizeof(idfile), "/var/db/dhcp6c_duid_%s", ifname);
+        }
+    }
 
 	if (fp) {
 		/* decode length */

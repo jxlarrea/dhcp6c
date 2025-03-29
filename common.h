@@ -161,7 +161,7 @@ int in6_addrscopebyif(struct in6_addr *, char *);
 int in6_scope(struct in6_addr *);
 void setloglevel(int);
 void d_printf(int, const char *, const char *, ...);
-int get_duid(const char *, struct duid *);
+int get_duid(const char *ifname, struct duid *);
 void dhcp6_init_options(struct dhcp6_optinfo *);
 void dhcp6_clear_options(struct dhcp6_optinfo *);
 int dhcp6_copy_options(struct dhcp6_optinfo *,
