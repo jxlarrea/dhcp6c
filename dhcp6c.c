@@ -149,9 +149,11 @@ static char **saved_cli_if;
 int
 main(int argc, char *argv[])
 {
-	int ch, pid;
+	char text_pid[16];
+	int ch, pid, pidfd;
 	char *progname;
 	FILE *pidfp;
+	ssize_t len;
 	struct cf_namelist *ifnamep;
 
 	if ((progname = strrchr(*argv, '/')) == NULL)
@@ -231,12 +233,40 @@ main(int argc, char *argv[])
 			err(1, "daemon");
 	}
 
+	if ((pidfp = fopen(pid_file, "a+e")) == NULL) {
+		d_printf(LOG_ERR, FNAME, "failed to open PID file %s", pid_file);
+		exit(1);
+	}
+
+	pidfd = fileno(pidfp);
+
+	/* hold a lock here to make sure we don't get a clobbered PID read */
+	if (flock(pidfd, LOCK_EX) != 0) {
+		d_printf(LOG_ERR, FNAME, "failed to aqcuire PID file %s exclusive lock", pid_file);
+		exit(1);
+	}
+
+	rewind(pidfp);
+	len = read(pidfd, text_pid, sizeof(text_pid) - 1);
+	if (len < 0) {
+		d_printf(LOG_ERR, FNAME, "failed to read PID file %s", pid_file);
+		exit(1);
+	} else if (len > 0) {
+		text_pid[len] = '\0';
+		pid = atoi(text_pid);
+
+		if (kill(pid, 0) == 0 || errno != ESRCH) {
+			/* this is fine */
+			d_printf(LOG_ERR, FNAME, "another process is already running (%d)", pid);
+			exit(0);
+		}
+	}
+
 	/* dump current PID */
 	pid = getpid();
-	if ((pidfp = fopen(pid_file, "w")) != NULL) {
-		fprintf(pidfp, "%d\n", pid);
-		fclose(pidfp);
-	}
+	ftruncate(pidfd, 0);
+	fprintf(pidfp, "%d\n", pid);
+	fclose(pidfp);
 
 	client6_startall(0);
 	client6_mainloop();
